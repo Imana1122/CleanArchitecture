@@ -1,4 +1,5 @@
 ﻿using Domain.StudentCRUD;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -17,6 +18,8 @@ namespace Presentation.StudentCRUD.Controllers
             _userManager = userManager;
             _roleManager = roleManager;
         }
+
+
 
         [HttpPost("register")]
         public async Task<IActionResult> Register(RegisterViewModel model)
@@ -59,7 +62,7 @@ namespace Presentation.StudentCRUD.Controllers
 
 
 
-        [HttpGet]
+        [HttpGet("getAll"),Authorize]
         public async Task<IActionResult> GetUsers()
         {
             var users=await _userManager.Users.ToListAsync();
@@ -80,15 +83,15 @@ namespace Presentation.StudentCRUD.Controllers
         }
 
 
-        [HttpPut]
-        public async Task<IActionResult> Update(string id, UpdateViewModel model)
+        [HttpPut("updateByEmail")]
+        public async Task<IActionResult> Update(string email, UpdateViewModel model)
         {
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
             }
 
-            var user = await _userManager.FindByIdAsync(id);
+            var user = await _userManager.FindByEmailAsync(email);
             if (user == null)
             {
                 return NotFound("User not found.");
@@ -125,10 +128,10 @@ namespace Presentation.StudentCRUD.Controllers
         }
 
 
-        [HttpDelete]
-        public async Task<IActionResult> DeleteUser(string userId)
+        [HttpDelete("deleteByEmail")]
+        public async Task<IActionResult> DeleteUser(string email)
         {
-            var user = await _userManager.FindByIdAsync(userId);
+            var user = await _userManager.FindByEmailAsync(email);
             if (user == null)
             {
                 return NotFound();
@@ -142,10 +145,11 @@ namespace Presentation.StudentCRUD.Controllers
             return BadRequest(result.Errors);
         }
 
-        [HttpPost("{id}/changepassword")]
-        public async Task<IActionResult> ChangePassword(string id, string oldPassword, string newPassword)
+        [HttpPost("changepassword"), Authorize]
+        
+        public async Task<IActionResult> ChangePassword(string email, string oldPassword, string newPassword)
         {
-            var user = await _userManager.FindByIdAsync(id);
+            var user = await _userManager.FindByEmailAsync(email);
 
             if (user == null)
             {

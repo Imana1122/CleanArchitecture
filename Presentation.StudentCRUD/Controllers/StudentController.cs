@@ -1,5 +1,6 @@
 ﻿using Domain.StudentCRUD;
 using Infrastructure.StudentCRUD;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Presentation.StudentCRUD.Controllers
@@ -13,14 +14,17 @@ namespace Presentation.StudentCRUD.Controllers
             this.studentService = studentService;
         }
 
+
         [HttpPost, Route("AddStudent")]
+        [Authorize(Roles = "Admin")] // Restricts access to users with the "Admin" role
+
         public async Task<IActionResult> AddStudent(Student student)
         {
             var addStudent = await studentService.AddStudent(student);
             return Ok(addStudent);
         }
 
-        [HttpGet, Route("GetAllStudents")]
+        [HttpGet, Route("GetAllStudents"), Authorize]
         public async Task<IActionResult> GetAllStudents()
         {
             var students = await studentService.GetAllStudents();
@@ -42,6 +46,8 @@ namespace Presentation.StudentCRUD.Controllers
         }
 
         [HttpPut, Route("UpdateStudent")]
+        [Authorize(Roles = "Admin")] // Restricts access to users with the "Admin" role
+
         public async Task<IActionResult> UpdateStudent(Student student)
         {
             var result = await studentService.UpdateStudent(student);
@@ -58,9 +64,13 @@ namespace Presentation.StudentCRUD.Controllers
 
 
 
-        [HttpDelete, Route("DeleteStudent")]
+        [HttpDelete, Route("DeleteStudent"),Authorize]
+      
+
         public async Task<IActionResult> DeleteStudent(string id)
         {
+            var token = HttpContext.Request.Headers["Authorization"].FirstOrDefault()?.Split(" ").Last();
+
             await studentService.DeleteStudent(id);
             
             return Ok();
