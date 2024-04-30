@@ -3,6 +3,10 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
 
 namespace Presentation.StudentCRUD.Controllers
 {
@@ -12,11 +16,38 @@ namespace Presentation.StudentCRUD.Controllers
     {
         private readonly UserManager<AppUser> _userManager;
         private readonly RoleManager<IdentityRole> _roleManager;
+        private readonly IConfiguration _configuration;
+        private readonly SignInManager<AppUser> _signInManager;
 
-        public AccountController(UserManager<AppUser> userManager, RoleManager<IdentityRole> roleManager)
+        public record LoginResponse(bool Flag, string Token, string Message);
+        public record UserSession(string? Id, string? Name, string? Email, string? Role);
+        public AccountController(UserManager<AppUser> userManager, RoleManager<IdentityRole> roleManager, IConfiguration configuration, SignInManager<AppUser> signInManager)
         {
             _userManager = userManager;
             _roleManager = roleManager;
+            _configuration = configuration;
+            _signInManager = signInManager;
+        }
+
+        [HttpPost("Login")]
+        public async Task<LoginResponse> Login([FromBody] LoginModel loginUser)
+        {
+            var result = await _signInManager.PasswordSignInAsync(loginUser.Email, loginUser.Password, false, lockoutOnFailure: false);
+            if (result.Succeeded)
+            {
+
+                var getUser = await _userManager.FindByEmailAsync(loginUser.Email);
+                var getUserRole = await _userManager.GetRolesAsync(getUser);
+                var userSession = new UserSession(getUser.Id, getUser.UserName, getUser.Email, getUserRole.First());
+                string token = GenerateToken(userSession);
+
+                return new LoginResponse(true, token!, "Login completed");
+
+            }
+            else
+            {
+                return new LoginResponse(false, null!, "Login not completed");
+            }
         }
 
 
@@ -62,7 +93,7 @@ namespace Presentation.StudentCRUD.Controllers
 
 
 
-        [HttpGet("getAll"),Authorize]
+        [HttpGet("getAll")]
         public async Task<IActionResult> GetUsers()
         {
             var users=await _userManager.Users.ToListAsync();
@@ -164,6 +195,29 @@ namespace Presentation.StudentCRUD.Controllers
             }
 
             return Ok(result); // Return 204 No Content if password change is successful
+        }
+
+
+        private string GenerateToken(UserSession user)
+        {
+            var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]!));
+            var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
+            var userClaims = new[]
+            {
+                new Claim(ClaimTypes.NameIdentifier,user.Id!),
+                new Claim(ClaimTypes.Name, user.Name!),
+                new Claim(ClaimTypes.Email, user.Email!),
+                new Claim(ClaimTypes.Role, user.Role!)
+            };
+
+            var token = new JwtSecurityToken(
+                issuer: _configuration["Jwt:Issuer"],
+                audience: _configuration["Jwt:Audience"],
+                claims: userClaims,
+                expires: DateTime.Now.AddDays(1),
+                signingCredentials: credentials);
+
+            return new JwtSecurityTokenHandler().WriteToken(token);
         }
 
 

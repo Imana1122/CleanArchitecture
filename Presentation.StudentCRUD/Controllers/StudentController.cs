@@ -16,7 +16,7 @@ namespace Presentation.StudentCRUD.Controllers
 
 
         [HttpPost, Route("AddStudent")]
-        [Authorize(Roles = "Admin")] // Restricts access to users with the "Admin" role
+      
 
         public async Task<IActionResult> AddStudent(Student student)
         {
@@ -24,7 +24,8 @@ namespace Presentation.StudentCRUD.Controllers
             return Ok(addStudent);
         }
 
-        [HttpGet, Route("GetAllStudents"), Authorize]
+        [HttpGet, Route("GetAllStudents")]
+        [Authorize(Roles ="Admin")]
         public async Task<IActionResult> GetAllStudents()
         {
             var students = await studentService.GetAllStudents();

@@ -1,8 +1,11 @@
 using Domain.StudentCRUD;
 using Infrastructure.StudentCRUD;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Swashbuckle.AspNetCore.Filters;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,10 +24,27 @@ builder.Services.AddSwaggerGen(options=>
 
     options.OperationFilter<SecurityRequirementsOperationFilter>();
 });
+builder.Services.AddScoped< HttpClient>();
 builder.Services.AddScoped<IStudentService, StudentService>();
 
 //Add Authentication
-builder.Services.AddAuthentication().AddBearerToken(IdentityConstants.BearerScheme);
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+}).AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateIssuerSigningKey = true,
+        ValidateLifetime = true,
+        ValidIssuer = builder.Configuration["Jwt:Issuer"],
+        ValidAudience = builder.Configuration["Jwt:Audience"],
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!))
+    };
+});
 
 //Add Authorization
 builder.Services.AddAuthorizationBuilder();
@@ -32,7 +52,7 @@ builder.Services.AddAuthorizationBuilder();
 //Configure DBContext
 builder.Services.AddDbContext<ApplicationDBContext>();
 
-builder.Services.AddIdentity<AppUser,IdentityRole>().AddEntityFrameworkStores<ApplicationDBContext>().AddApiEndpoints();
+builder.Services.AddIdentity<AppUser,IdentityRole>().AddEntityFrameworkStores<ApplicationDBContext>().AddSignInManager().AddRoles<IdentityRole>();
 // Add logging
 builder.Logging.AddConsole();
 var app = builder.Build();
@@ -57,7 +77,7 @@ using (var scope = app.Services.CreateScope())
 }
 
 
-app.MapIdentityApi<AppUser>();
+//app.MapIdentityApi<AppUser>();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
